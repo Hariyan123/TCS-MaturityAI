@@ -67,7 +67,7 @@ app.use(cors({
   origin: (origin, callback) => {
     // Allow requests with no origin (curl, mobile apps, server-to-server)
     if (!origin) return callback(null, true);
-    // Allow configured origins or any *.vercel.app preview URL
+    // Allow configured origins or any *.vercel.app preview/prod URL
     if (
       ALLOWED_ORIGINS.includes(origin) ||
       /^https:\/\/.*\.vercel\.app$/.test(origin)
@@ -79,6 +79,23 @@ app.use(cors({
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200, // Some browsers send 204 which blocks preflight
+}));
+
+// Explicit OPTIONS handler — must be BEFORE all routes
+app.options('*', cors({
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    if (
+      ALLOWED_ORIGINS.includes(origin) ||
+      /^https:\/\/.*\.vercel\.app$/.test(origin)
+    ) return callback(null, true);
+    return callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200,
 }));
 
 app.use(express.json());
