@@ -411,7 +411,7 @@ async function initSchema() {
 
     await client.query(`
       INSERT INTO settings (id, active_ai_provider, api_keys, api_endpoints, ollama_url, ollama_model)
-      VALUES (1,'ollama',
+      VALUES (1,'gemini',
         '{"openai":"","gemini":"","claude":""}',
         '{"openai":"","gemini":"","claude":"","ollama":""}',
         'http://localhost:11434','llama3')
@@ -455,7 +455,7 @@ export async function writeAuditLog({ userId, action, entityType, entityId, oldV
 
 // USER METHODS
 export async function getUsers() {
-  return query('SELECT id, email, role, name, gender, business_group, employee_id, account, created_at FROM users ORDER BY created_at DESC');
+  return query('SELECT id, email, role, name, full_name, business_group, employee_id, account, created_at FROM users ORDER BY created_at DESC');
 }
 
 export async function createUser(email, password, extraData = {}) {
@@ -472,7 +472,9 @@ export async function createUser(email, password, extraData = {}) {
   const account        = (extraData.account        || '').trim();
 
   await query(
-    'INSERT INTO users (id, email, password, role, name, business_group, employee_id, account) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
+    `INSERT INTO users
+       (id, email, password_hash, password, role, name, full_name, business_group, employee_id, account)
+     VALUES ($1,$2,$3,$3,$4,$5,$5,$6,$7,$8)`,
     [id, email.toLowerCase(), hashedPassword, 'user', name || null, businessGroup || null, employeeId || null, account || null]
   );
   return { id, email: email.toLowerCase(), name, businessGroup, employeeId, account };
@@ -527,10 +529,10 @@ export async function ensureAdminUser(passwordHash) {
   const rows = await query("SELECT * FROM users WHERE email = 'admin@sdlc.com'");
   if (rows.length === 0) {
     await query(
-      'INSERT INTO users (id, email, password, role) VALUES ($1, $2, $3, $4)',
-      ['admin_user', 'admin@sdlc.com', passwordHash, 'admin']
+      'INSERT INTO users (id, email, password_hash, password, role, full_name, name) VALUES ($1, $2, $3, $3, $4, $5, $5)',
+      ['admin_user', 'admin@sdlc.com', passwordHash, 'admin', 'System Administrator']
     );
-    return { id: 'admin_user', email: 'admin@sdlc.com', role: 'admin', name: '' };
+    return { id: 'admin_user', email: 'admin@sdlc.com', role: 'admin', name: 'System Administrator' };
   }
   const row = rows[0];
   return { id: row.id, email: row.email, role: row.role, name: row.name || '' };
@@ -562,7 +564,7 @@ export async function saveAssessment(assessmentData) {
   const answers      = JSON.stringify(assessmentData.answers  || {});
   const scores       = JSON.stringify(assessmentData.scores   || {});
   const feedback     = JSON.stringify(assessmentData.feedback || null);
-  const overallScore = parseInt(assessmentData.overallScore   || 0);
+  const overallScore = parseFloat(assessmentData.overallScore || 0);
   const framework    = assessmentData.framework || 'SDLC';
 
   if (existing.length > 0) {
